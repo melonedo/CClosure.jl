@@ -1,4 +1,4 @@
-name = "CClosures"
+name = "CClosure"
 uuid = "6238cdf7-1651-426a-bbec-388a63a3d275"
 authors = ["melonedo <44501064+melonedo@users.noreply.github.com> and contributors"]
 version = "0.1.0"

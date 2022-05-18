@@ -1,11 +1,11 @@
-using CClosures
+using CClosure
 using Test
 
 args = [3, 1, 2]
 
 @testset "Invoker" begin
     for n in 1:length(args)+1
-        i = CClosures.Invoker{n}()
+        i = CClosure.Invoker{n}()
         @test @inferred i(args[1:n-1]..., +, args[n:end]...) == sum(args)
     end
 end
@@ -22,28 +22,24 @@ end
     for n in 1:length(args)+1
         f, d = cclosure(+, n, Int, repeat([Int], length(args)))
         @test do_ccall(f, Int, args[1:n-1]..., d, args[n:end]...) == sum(args)
+        let sum1 = 0
+            f, d = cclosure(n, Int, repeat([Int], length(args))) do xs...
+                sum1 = sum(xs)
+            end
+            @test do_ccall(f, Int, args[1:n-1]..., d, args[n:end]...) == sum(args)
+            @test sum1 == sum(args)
+        end
     end
-end
-
-@testset "@cclosure" begin
-    f, d = @cclosure (+) Int (self, Int, Int, Int)
-    @test do_ccall(f, Int, d, args...) == sum(args)
-
-    f, d = @cclosure (+) Int (Int, Int, Int, self)
-    @test do_ccall(f, Int, args..., d) == sum(args)
-
-    f, d = @cclosure (+) Int (Int, self, Int, Int)
-    @test do_ccall(f, Int, args[1], d, args[2:end]...) == sum(args)
 end
 
 count = Ref(0)
 
 function compare(a, b)::Cint
     count[] += 1
-    (a < b) ? -1 : ((a > b) ? +1 : 0)
+    a > b ? +1 : a < b ? -1 : 0
 end
 
-function qsort(a, f, d)
+function qsort!(a, f, d)
     if Sys.iswindows()
         @ccall qsort_s(a::Ptr{Int}, length(a)::Csize_t, sizeof(eltype(a))::Csize_t, f::Ptr{Cvoid}, d::Ptr{Cvoid})::Cvoid
     elseif Sys.isbsd()
@@ -59,15 +55,6 @@ end
     ccompare = @cfunction compare Cint (Ref{Int}, Ref{Int})
     @ccall qsort(a::Ptr{Int}, length(a)::Csize_t, sizeof(eltype(a))::Csize_t, ccompare::Ptr{Cvoid})::Cvoid
     @test issorted(a)
-    
-    a = copy(args)
-    if Sys.islinux()
-        f, d = @cclosure compare Cint (Ref{Int}, Ref{Int}, self)
-    else
-        f, d = @cclosure compare Cint (self, Ref{Int}, Ref{Int})
-    end
-    qsort(a, f, d)
-    @test issorted(a)
 
     count[] = 0
     count2 = Ref(0)
@@ -76,7 +63,7 @@ end
         count2[] += 1
         compare(a, b)
     end
-    qsort(a, f, d)
+    qsort!(a, f, d)
     @test issorted(a)
     @test count[] == count2[]
 end
